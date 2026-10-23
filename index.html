@@ -1,0 +1,1019 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CodePad v3 — Lightweight Browser IDE</title>
+<meta name="description" content="CodePad v3: a lightweight, zero-install code editor that runs Python, JavaScript and SQL in any browser on Windows, macOS, Linux and ChromeOS.">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 rx=%227%22 fill=%22%235c6fff%22/%3E%3Ctext x=%2216%22 y=%2222%22 font-size=%2216%22 text-anchor=%22middle%22 fill=%22white%22 font-family=%22monospace%22%3E%7B%7D%3C/text%3E%3C/svg%3E">
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg: #0d0f1a;
+  --surface: #13162a;
+  --surface2: #1a1d30;
+  --border: #252840;
+  --accent: #5c6fff;
+  --accent2: #3ecf8e;
+  --danger: #ff5f5f;
+  --text: #d8daf0;
+  --muted: #5a5d78;
+  --mono: 'Courier New', monospace;
+  --sidebar-w: 220px;
+}
+
+body { font-family: 'Segoe UI', system-ui, sans-serif; background: var(--bg); color: var(--text); height: 100vh; display: flex; flex-direction: column; overflow: hidden; font-size: 13px; }
+
+/* ── TOPBAR ── */
+#topbar { display: flex; align-items: center; gap: 10px; padding: 8px 14px; background: var(--surface); border-bottom: 1px solid var(--border); flex-shrink: 0; z-index: 10; }
+.logo { font-size: 16px; font-weight: 800; color: var(--accent); letter-spacing: -0.5px; }
+.logo span { color: var(--text); } .logo sup { font-size:9px; color:var(--muted); vertical-align:super; }
+select, .tbtn { background: var(--surface2); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 5px 11px; font-size: 12px; cursor: pointer; outline: none; }
+select:hover, .tbtn:hover { border-color: var(--accent); }
+.tbtn { font-weight: 600; transition: all 0.15s; }
+.tbtn.run  { background: var(--accent2); color: #071a10; border-color: var(--accent2); }
+.tbtn.ai   { background: var(--accent);  color: #fff;    border-color: var(--accent); }
+.tbtn:active { transform: scale(0.97); }
+.sep { width: 1px; height: 20px; background: var(--border); margin: 0 2px; }
+.ml { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+#collab-badge { display:none; align-items:center; gap:6px; background:#1a2e1f; border:1px solid #2e5e3a; border-radius:6px; padding:4px 10px; color:var(--accent2); font-size:11px; font-weight:600; cursor:pointer; }
+#collab-badge:hover { background:#1f3824; }
+#collab-badge .dot { width:6px; height:6px; border-radius:50%; background:var(--accent2); animation:pulse 1.4s infinite; }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+
+/* ── BODY LAYOUT ── */
+#body { display:flex; flex:1; overflow:hidden; }
+
+/* ── SIDEBAR ── */
+#sidebar { width:var(--sidebar-w); flex-shrink:0; display:flex; flex-direction:column; background:#0f1220; border-right:1px solid var(--border); overflow:hidden; transition:width 0.2s; }
+#sidebar.collapsed { width:0; }
+#sb-head { display:flex; align-items:center; justify-content:space-between; padding:8px 10px; border-bottom:1px solid var(--border); }
+#sb-title { font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.8px; }
+#sb-actions { display:flex; gap:4px; }
+.sb-icon-btn { background:none; border:none; color:var(--muted); cursor:pointer; font-size:14px; padding:2px 4px; border-radius:4px; line-height:1; }
+.sb-icon-btn:hover { background:var(--surface2); color:var(--text); }
+
+#file-tree { flex:1; overflow-y:auto; padding:6px 0; }
+.folder-item { padding:5px 10px; font-size:12px; color:var(--muted); font-weight:700; display:flex; align-items:center; gap:5px; user-select:none; }
+.folder-item span { font-size:11px; }
+.file-item { padding:5px 10px 5px 24px; font-size:12px; color:#9090b8; cursor:pointer; display:flex; align-items:center; gap:6px; border-radius:4px; margin:0 4px; position:relative; }
+.file-item:hover { background:var(--surface2); color:var(--text); }
+.file-item.active { background:#1e2140; color:var(--accent); border-left:2px solid var(--accent); padding-left:22px; }
+.file-item .fi-icon { font-size:13px; flex-shrink:0; }
+.file-item .fi-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.file-item .fi-del { display:none; font-size:10px; color:var(--danger); background:none; border:none; cursor:pointer; padding:2px 5px; border-radius:3px; }
+.file-item:hover .fi-del { display:block; }
+.file-item .fi-del:hover { background:#2a1010; }
+
+#sb-new-btn { margin:8px; padding:7px; background:var(--surface2); border:1px dashed var(--border); border-radius:6px; color:var(--muted); font-size:12px; cursor:pointer; text-align:center; display:flex; align-items:center; justify-content:center; gap:6px; }
+#sb-new-btn:hover { border-color:var(--accent); color:var(--accent); }
+
+/* ── MAIN AREA ── */
+#main { display:flex; flex:1; overflow:hidden; flex-direction:column; }
+
+/* ── TABS BAR ── */
+#tabs-bar { display:flex; align-items:center; background:var(--surface); border-bottom:1px solid var(--border); overflow-x:auto; flex-shrink:0; }
+#tabs-bar::-webkit-scrollbar { height:2px; }
+#tabs-bar::-webkit-scrollbar-thumb { background:var(--border); }
+.tab-item { display:flex; align-items:center; gap:6px; padding:7px 14px; font-size:12px; color:var(--muted); cursor:pointer; border-right:1px solid var(--border); white-space:nowrap; flex-shrink:0; }
+.tab-item:hover { background:var(--surface2); color:var(--text); }
+.tab-item.active { background:var(--bg); color:var(--text); border-bottom:2px solid var(--accent); }
+.tab-item .t-icon { font-size:12px; }
+.tab-item .t-close { font-size:11px; color:var(--muted); background:none; border:none; cursor:pointer; padding:0 2px; border-radius:2px; line-height:1; }
+.tab-item .t-close:hover { color:var(--danger); background:#2a1010; }
+.tab-item.unsaved .t-name::after { content:'●'; color:var(--accent); font-size:8px; margin-left:4px; vertical-align:middle; }
+
+/* ── EDITOR AREA ── */
+#editor-area { flex:1; display:flex; overflow:hidden; }
+#editor-panel { flex:1; display:flex; flex-direction:column; min-width:0; }
+#editor-wrap { flex:1; display:flex; overflow:hidden; }
+#line-nums { padding:13px 10px; background:#0f1220; color:var(--muted); font-family:var(--mono); font-size:13px; line-height:1.65; text-align:right; min-width:46px; border-right:1px solid var(--border); overflow:hidden; white-space:pre; user-select:none; }
+#editor { flex:1; background:transparent; color:var(--text); font-family:var(--mono); font-size:13px; line-height:1.65; padding:13px 16px; border:none; outline:none; resize:none; tab-size:4; caret-color:var(--accent); overflow-y:auto; }
+
+/* empty state */
+#empty-state { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:center; color:var(--muted); gap:12px; }
+#empty-state .big { font-size:48px; }
+#empty-state p { font-size:13px; }
+#empty-state button { padding:8px 20px; border-radius:7px; background:var(--accent); color:#fff; border:none; cursor:pointer; font-size:13px; font-weight:600; }
+
+/* ── OUTPUT ── */
+#out-panel { width:340px; flex-shrink:0; display:flex; flex-direction:column; border-left:1px solid var(--border); background:var(--surface); }
+.panel-head { padding:9px 14px; font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:0.6px; border-bottom:1px solid var(--border); display:flex; align-items:center; gap:7px; }
+.ind { width:7px; height:7px; border-radius:50%; background:var(--accent2); }
+.ind.err { background:var(--danger); }
+#out-content { flex:1; overflow-y:auto; padding:13px 14px; font-family:var(--mono); font-size:12px; line-height:1.7; white-space:pre-wrap; word-break:break-word; color:#b0b4d0; }
+.ok  { color:var(--accent2); }
+.err { color:var(--danger); }
+.inf { color:var(--accent); }
+
+/* ── AI PANEL ── */
+#ai-panel { width:0; overflow:hidden; flex-shrink:0; display:flex; flex-direction:column; border-left:1px solid var(--border); background:var(--surface); transition:width 0.22s ease; }
+#ai-panel.open { width:300px; }
+#ai-msgs { flex:1; overflow-y:auto; padding:12px; display:flex; flex-direction:column; gap:9px; }
+.amsg { padding:9px 11px; border-radius:8px; font-size:12px; line-height:1.6; }
+.amsg.user { background:#1e2240; border:1px solid #2a2f56; align-self:flex-end; max-width:90%; color:#c0c4e0; }
+.amsg.bot  { background:#171a2e; border:1px solid #222540; color:#d0d4f0; }
+.amsg.bot pre { background:#0d0f1a; border-radius:4px; padding:7px; margin-top:6px; font-size:11px; overflow-x:auto; color:#90b8ff; }
+.amsg.bot code { background:#0d0f1a; padding:1px 4px; border-radius:3px; color:#90b8ff; }
+.amsg.load { color:var(--muted); font-style:italic; }
+#ai-chips { display:flex; flex-wrap:wrap; gap:5px; padding:8px 12px 0; }
+.chip { background:#1a1d30; border:1px solid #252840; color:#7878a0; border-radius:99px; padding:3px 10px; font-size:11px; cursor:pointer; }
+.chip:hover { color:var(--text); border-color:var(--accent); }
+#ai-row { display:flex; gap:6px; padding:9px 10px; border-top:1px solid var(--border); }
+#ai-in { flex:1; background:#1a1d30; border:1px solid #252840; border-radius:6px; color:var(--text); font-size:12px; padding:7px 9px; outline:none; font-family:inherit; resize:none; }
+#ai-in:focus { border-color:var(--accent); }
+#ai-send { background:var(--accent); color:#fff; border:none; border-radius:6px; padding:7px 13px; font-size:12px; font-weight:700; cursor:pointer; }
+
+/* ── MODALS ── */
+.modal-bg { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.65); z-index:100; align-items:center; justify-content:center; }
+.modal-bg.show { display:flex; }
+.modal { background:var(--surface2); border:1px solid var(--border); border-radius:12px; padding:26px 26px 22px; width:420px; max-width:95vw; }
+.modal h2 { font-size:16px; font-weight:700; margin-bottom:6px; }
+.modal p  { font-size:12px; color:var(--muted); margin-bottom:16px; line-height:1.6; }
+.modal-btns { display:flex; gap:10px; margin-top:16px; }
+.mBtn { flex:1; padding:9px; border-radius:7px; border:1px solid var(--border); background:var(--surface); color:var(--text); font-size:13px; font-weight:600; cursor:pointer; text-align:center; }
+.mBtn:hover { border-color:var(--accent); color:var(--accent); }
+.mBtn.primary { background:var(--accent); color:#fff; border-color:var(--accent); }
+.mBtn.primary:hover { opacity:0.88; color:#fff; }
+.mBtn.danger { color:var(--danger); border-color:var(--danger); }
+.mBtn.danger:hover { background:#2a1010; color:var(--danger); }
+.code-box { background:#0d0f1a; border:1px solid var(--border); border-radius:8px; padding:14px; font-family:var(--mono); font-size:22px; font-weight:700; text-align:center; letter-spacing:6px; color:var(--accent2); margin:14px 0; cursor:pointer; user-select:all; }
+.code-box:hover { border-color:var(--accent2); }
+.hint { font-size:11px; color:var(--muted); text-align:center; }
+input.min { width:100%; background:#0d0f1a; border:1px solid var(--border); border-radius:7px; color:var(--text); font-size:14px; padding:10px 12px; outline:none; font-family:var(--mono); text-align:center; letter-spacing:4px; margin:12px 0; }
+input.min:focus { border-color:var(--accent); }
+input.fname { width:100%; background:#0d0f1a; border:1px solid var(--border); border-radius:7px; color:var(--text); font-size:14px; padding:10px 12px; outline:none; margin:10px 0 4px; letter-spacing:0; }
+input.fname:focus { border-color:var(--accent); }
+.lang-pick { display:flex; flex-wrap:wrap; gap:8px; margin:10px 0; }
+.lang-opt { padding:7px 14px; border-radius:7px; border:1px solid var(--border); background:var(--surface); cursor:pointer; font-size:12px; transition:all 0.12s; }
+.lang-opt:hover,.lang-opt.sel { border-color:var(--accent); color:var(--accent); background:#0f1230; }
+
+/* ext list */
+#ext-list { margin:10px 0; display:flex; flex-direction:column; gap:8px; }
+.ext-item { display:flex; align-items:center; gap:12px; background:#0d0f1a; border:1px solid var(--border); border-radius:8px; padding:11px 14px; }
+.ext-icon { font-size:20px; width:32px; text-align:center; }
+.ext-info { flex:1; }
+.ext-name { font-weight:700; font-size:13px; }
+.ext-desc { font-size:11px; color:var(--muted); margin-top:2px; }
+.ext-src  { font-size:10px; color:var(--accent); margin-top:2px; }
+.ext-btn { padding:5px 14px; border-radius:6px; border:1px solid var(--border); background:var(--surface2); color:var(--text); font-size:11px; font-weight:600; cursor:pointer; }
+.ext-btn.installed { border-color:var(--accent2); color:var(--accent2); cursor:default; }
+.ext-btn:not(.installed):hover { border-color:var(--accent); color:var(--accent); }
+
+/* ── STATUSBAR ── */
+#statusbar { display:flex; align-items:center; gap:14px; padding:4px 14px; background:var(--surface); border-top:1px solid var(--border); flex-shrink:0; font-size:11px; color:var(--muted); }
+.lang-badge { background:var(--surface2); color:var(--accent); padding:1px 8px; border-radius:4px; font-weight:700; }
+.s-ok  { color:var(--accent2); }
+.s-err { color:var(--danger); }
+#cursor-info { margin-left:auto; }
+
+/* settings */
+.set-row { display:flex; flex-direction:column; gap:4px; margin:10px 0; text-align:left; }
+.set-row label { font-size:11px; color:var(--muted); font-weight:600; }
+.set-row input { background:#0d0f1a; border:1px solid var(--border); border-radius:7px; color:var(--text); font-size:13px; padding:8px 12px; outline:none; font-family:var(--mono); }
+.set-row input:focus { border-color:var(--accent); }
+.ext-btn.planned { border-color:var(--border); color:var(--muted); cursor:default; }
+a.repo-link { color:var(--muted); text-decoration:none; }
+a.repo-link:hover { color:var(--accent); }
+:focus-visible { outline:2px solid var(--accent); outline-offset:1px; }
+
+/* small screens: stack editor and output */
+@media (max-width: 760px) {
+  #topbar { flex-wrap:wrap; }
+  .ml { margin-left:0; flex-wrap:wrap; }
+  #sidebar { width:0; }
+  #sidebar.open-mobile { width:180px; }
+  #editor-area { flex-direction:column; }
+  #out-panel { width:auto; height:38%; border-left:none; border-top:1px solid var(--border); }
+  #ai-panel.open { width:auto; height:50%; }
+  .hide-sm { display:none; }
+}
+
+/* new file modal inline input row */
+.inline-row { display:flex; gap:8px; align-items:center; margin:10px 0; }
+.inline-row input { flex:1; background:#0d0f1a; border:1px solid var(--border); border-radius:7px; color:var(--text); font-size:13px; padding:8px 12px; outline:none; }
+.inline-row input:focus { border-color:var(--accent); }
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<div id="topbar">
+  <div class="logo">Code<span>Pad</span><sup>v3</sup></div>
+  <div class="sep"></div>
+
+  <select id="lang-sel" onchange="changeLang()">
+    <option value="python">🐍 Python</option>
+    <option value="javascript">🌐 JavaScript</option>
+    <option id="ext-opts" disabled>── Extensions ──</option>
+  </select>
+
+  <div class="sep"></div>
+  <button class="tbtn" onclick="openExt()">🧩 Extensions</button>
+  <button class="tbtn" onclick="openCollab()">👥 Collaborate</button>
+
+  <div id="collab-badge" onclick="openManageSession()">
+    <div class="dot"></div>
+    <span id="collab-label">Live</span>
+  </div>
+
+  <div class="ml">
+    <button class="tbtn" onclick="saveFile()" title="Ctrl+S / ⌘S">💾 Save</button>
+    <button class="tbtn" onclick="downloadFile()" title="Download file">⬇ Download</button>
+    <button class="tbtn" onclick="clearOut()">Clear</button>
+    <button class="tbtn run" onclick="runCode()" title="Ctrl+Enter / ⌘Enter">▶ Run</button>
+    <button class="tbtn ai" onclick="toggleAI()">✦ AI</button>
+    <button class="tbtn" onclick="openSettings()" title="Settings">⚙</button>
+  </div>
+</div>
+
+<!-- BODY -->
+<div id="body">
+
+  <!-- SIDEBAR -->
+  <div id="sidebar">
+    <div id="sb-head">
+      <span id="sb-title">Explorer</span>
+      <div id="sb-actions">
+        <button class="sb-icon-btn" title="New File" onclick="openNewFile()">+</button>
+        <button class="sb-icon-btn" title="Collapse Sidebar" onclick="toggleSidebar()">‹</button>
+      </div>
+    </div>
+    <div id="file-tree">
+      <div class="folder-item">📁 <span>MY PROJECT</span></div>
+      <!-- files rendered here -->
+    </div>
+    <button id="sb-new-btn" onclick="openNewFile()">＋ New File</button>
+  </div>
+
+  <!-- MAIN -->
+  <div id="main">
+
+    <!-- TABS -->
+    <div id="tabs-bar"></div>
+
+    <!-- EDITOR + OUTPUT + AI -->
+    <div id="editor-area">
+
+      <div id="editor-panel">
+        <!-- empty state shown when no file open -->
+        <div id="empty-state">
+          <div class="big">📄</div>
+          <p>No file open. Create or select a file.</p>
+          <button onclick="openNewFile()">＋ New File</button>
+        </div>
+        <div id="editor-wrap" style="display:none;">
+          <div id="line-nums">1</div>
+          <textarea id="editor" spellcheck="false" autocomplete="off" placeholder="Write your code here..."></textarea>
+        </div>
+      </div>
+
+      <!-- OUTPUT -->
+      <div id="out-panel">
+        <div class="panel-head"><div class="ind" id="out-ind"></div>Output</div>
+        <div id="out-content"><span class="inf">Ready. Press ▶ Run.</span></div>
+      </div>
+
+      <!-- AI -->
+      <div id="ai-panel">
+        <div class="panel-head" style="justify-content:space-between;">
+          <span>✦ AI Assistant</span>
+          <button onclick="toggleAI()" style="background:none;border:none;color:var(--muted);cursor:pointer;font-size:15px;">✕</button>
+        </div>
+        <div id="ai-chips">
+          <span class="chip" onclick="qask('Explain my code')">Explain</span>
+          <span class="chip" onclick="qask('Find bugs in my code')">Bugs</span>
+          <span class="chip" onclick="qask('How can I improve this code?')">Improve</span>
+          <span class="chip" onclick="qask('Add comments to my code')">Comment</span>
+        </div>
+        <div id="ai-msgs">
+          <div class="amsg bot">Hi! Ask me to explain, debug, or improve your code.</div>
+        </div>
+        <div id="ai-row">
+          <textarea id="ai-in" rows="1" placeholder="Ask about your code…"></textarea>
+          <button id="ai-send" onclick="sendAI()">↑</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- STATUSBAR -->
+<div id="statusbar">
+  <span class="lang-badge" id="s-lang">Python</span>
+  <span id="s-msg" class="s-ok">Ready</span>
+  <span id="s-file" style="color:var(--muted);">No file open</span>
+  <span id="cursor-info">Ln 1, Col 1</span>
+  <a class="repo-link hide-sm" href="https://github.com/tejashalo/codepad-v3" target="_blank" rel="noopener">GitHub ↗</a>
+</div>
+
+
+<!-- ══ NEW FILE MODAL ══ -->
+<div class="modal-bg" id="new-file-modal">
+  <div class="modal" style="width:380px;">
+    <h2>📄 New File</h2>
+    <p>Choose a language and give your file a name.</p>
+    <div class="lang-pick" id="lang-pick">
+      <div class="lang-opt sel" data-lang="python" onclick="pickLang(this)">🐍 Python</div>
+      <div class="lang-opt" data-lang="javascript" onclick="pickLang(this)">🌐 JavaScript</div>
+      <div class="lang-opt" data-lang="java" onclick="pickLang(this)">☕ Java</div>
+      <div class="lang-opt" data-lang="cpp" onclick="pickLang(this)">⚙️ C++</div>
+      <div class="lang-opt" data-lang="sql" onclick="pickLang(this)">🗃️ SQL</div>
+    </div>
+    <div class="inline-row">
+      <input id="new-fname" placeholder="e.g. main.py" />
+    </div>
+    <p id="new-file-err" style="color:var(--danger);font-size:11px;display:none;margin:0;">File name already exists.</p>
+    <div class="modal-btns">
+      <button class="mBtn primary" onclick="createNewFile()">Create File</button>
+      <button class="mBtn" onclick="closeModal('new-file-modal')">Cancel</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ COLLAB MODAL ══ -->
+<div class="modal-bg" id="collab-modal">
+  <div class="modal">
+    <h2>👥 Collaborate</h2>
+    <p>Host generates a session code; open CodePad in another tab or window of the same browser and join with the code to see edits live. (Uses the BroadcastChannel API — no server, works offline.)</p>
+    <div class="modal-btns">
+      <button class="mBtn primary" onclick="hostSession()">🚀 Host — Generate Code</button>
+      <button class="mBtn" onclick="showJoin()">🔗 Join a Session</button>
+    </div>
+    <div id="host-view" style="display:none;margin-top:18px;">
+      <p style="margin:0 0 4px;font-size:11px;color:var(--muted);">Click the code to copy and share with teammates.</p>
+      <div class="code-box" id="session-code-display" onclick="copyCode()">------</div>
+      <p class="hint">⚡ Edits sync in real-time between browser tabs</p>
+      <div id="peer-list" style="margin-top:10px;font-size:11px;color:var(--muted);text-align:center;"></div>
+      <div class="modal-btns" style="margin-top:14px;">
+        <button class="mBtn primary" onclick="closeModal('collab-modal')">✓ Start Editing</button>
+        <button class="mBtn danger" onclick="endSession()">✕ End Session</button>
+      </div>
+    </div>
+    <div id="join-view" style="display:none;margin-top:18px;">
+      <p style="margin:0 0 4px;font-size:11px;color:var(--muted);">Enter the 6-character code from your host:</p>
+      <input class="min" id="join-input" maxlength="6" placeholder="ABC123" oninput="this.value=this.value.toUpperCase()">
+      <p id="join-err" style="color:var(--danger);font-size:11px;margin-top:6px;text-align:center;display:none;">Session not found. Check the code.</p>
+      <div class="modal-btns">
+        <button class="mBtn primary" onclick="joinSession()">Join Session</button>
+        <button class="mBtn" onclick="closeModal('collab-modal')">Cancel</button>
+      </div>
+    </div>
+    <button class="mBtn" style="width:100%;margin-top:12px;" onclick="closeModal('collab-modal')">Close</button>
+  </div>
+</div>
+
+
+<!-- ══ MANAGE SESSION MODAL ══ -->
+<div class="modal-bg" id="manage-modal">
+  <div class="modal" style="width:340px;">
+    <h2 id="manage-title">Session Active</h2>
+    <p id="manage-desc"></p>
+    <div class="code-box" id="manage-code-display" onclick="copyCode()"></div>
+    <div id="manage-peer-info" style="font-size:11px;color:var(--muted);text-align:center;margin-bottom:10px;"></div>
+    <div class="modal-btns">
+      <button class="mBtn primary" onclick="closeModal('manage-modal')">Back to Editor</button>
+      <button class="mBtn danger" id="manage-leave-btn"></button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ EXTENSIONS MODAL ══ -->
+<div class="modal-bg" id="ext-modal">
+  <div class="modal" style="width:480px;">
+    <h2>🧩 Extensions</h2>
+    <p>Install language support. Each extension adds a new language to the editor — no software download needed.</p>
+    <div id="ext-list">
+      <div class="ext-item">
+        <div class="ext-icon">🐍</div>
+        <div class="ext-info">
+          <div class="ext-name">Python</div>
+          <div class="ext-desc">Full Python 3 via Pyodide WebAssembly runtime</div>
+          <div class="ext-src">Source: pyodide.org</div>
+        </div>
+        <button class="ext-btn installed">✓ Built-in</button>
+      </div>
+      <div class="ext-item">
+        <div class="ext-icon">🌐</div>
+        <div class="ext-info">
+          <div class="ext-name">JavaScript</div>
+          <div class="ext-desc">Native browser JS — no runtime needed</div>
+          <div class="ext-src">Source: built-in</div>
+        </div>
+        <button class="ext-btn installed">✓ Built-in</button>
+      </div>
+      <div class="ext-item" id="ext-java-item">
+        <div class="ext-icon">☕</div>
+        <div class="ext-info">
+          <div class="ext-name">Java</div>
+          <div class="ext-desc">Edit Java files now; in-browser running is planned</div>
+          <div class="ext-src">Status: editing only</div>
+        </div>
+        <button class="ext-btn planned" disabled>Planned</button>
+      </div>
+      <div class="ext-item" id="ext-cpp-item">
+        <div class="ext-icon">⚙️</div>
+        <div class="ext-info">
+          <div class="ext-name">C++</div>
+          <div class="ext-desc">Edit C++ files now; in-browser running is planned</div>
+          <div class="ext-src">Status: editing only</div>
+        </div>
+        <button class="ext-btn planned" disabled>Planned</button>
+      </div>
+      <div class="ext-item" id="ext-sql-item">
+        <div class="ext-icon">🗃️</div>
+        <div class="ext-info">
+          <div class="ext-name">SQL</div>
+          <div class="ext-desc">Real SQLite in your browser via sql.js (WebAssembly, ~1 MB, loads on install)</div>
+          <div class="ext-src">Source: sql.js.org</div>
+        </div>
+        <button class="ext-btn" onclick="installExt('sql')">+ Install</button>
+      </div>
+    </div>
+    <p style="font-size:10px;color:var(--muted);margin-top:12px;text-align:center;">Each extension adds a runner that loads only when you need it, so CodePad stays light.</p>
+    <button class="mBtn" style="width:100%;margin-top:12px;" onclick="closeModal('ext-modal')">Done</button>
+  </div>
+</div>
+
+
+<!-- ══ SETTINGS MODAL ══ -->
+<div class="modal-bg" id="settings-modal">
+  <div class="modal">
+    <h2>⚙ Settings</h2>
+    <p>The AI assistant uses your own Anthropic API key. It is stored only in this browser (localStorage) and sent only to api.anthropic.com. Get a key at console.anthropic.com.</p>
+    <div class="set-row"><label for="set-key">Anthropic API key</label><input id="set-key" type="password" placeholder="sk-ant-..." autocomplete="off" spellcheck="false"></div>
+    <div class="set-row"><label for="set-model">Model</label><input id="set-model" placeholder="claude-sonnet-5-5" spellcheck="false"></div>
+    <div class="modal-btns">
+      <button class="mBtn primary" onclick="saveSettings()">Save</button>
+      <button class="mBtn danger" onclick="clearSettings()">Remove key</button>
+      <button class="mBtn" onclick="closeModal('settings-modal')">Close</button>
+    </div>
+  </div>
+</div>
+
+
+<script>
+// ══════════════════════════════════════════
+//  FILE SYSTEM (stored in localStorage)
+// ══════════════════════════════════════════
+
+const FS_KEY = 'codepad_v3_files';
+
+const LANG_EXT = { python:'py', javascript:'js', java:'java', cpp:'cpp', sql:'sql' };
+const EXT_LANG = { py:'python', js:'javascript', java:'java', cpp:'cpp', sql:'sql' };
+const LANG_ICON = { python:'🐍', javascript:'🌐', java:'☕', cpp:'⚙️', sql:'🗃️' };
+const LANG_NAME = { python:'Python', javascript:'JavaScript', java:'Java', cpp:'C++', sql:'SQL' };
+
+const STARTERS = {
+  python: `# Welcome to CodePad v3 🐍\n\ndef fibonacci(n):\n    a, b = 0, 1\n    result = []\n    for _ in range(n):\n        result.append(a)\n        a, b = b, a + b\n    return result\n\nprint("Fibonacci:", fibonacci(10))\nprint("Sum:", sum(fibonacci(10)))\n`,
+  javascript: `// Welcome to CodePad v3 🌐\n\nfunction fibonacci(n) {\n  let a = 0, b = 1, result = [];\n  for (let i = 0; i < n; i++) {\n    result.push(a);\n    [a, b] = [b, a + b];\n  }\n  return result;\n}\n\nconsole.log("Fibonacci:", fibonacci(10).join(', '));\n`,
+  java: `// Java — install Java extension to run\npublic class Main {\n    public static void main(String[] args) {\n        System.out.println("Hello from Java!");\n    }\n}\n`,
+  cpp:  `// C++ — install C++ extension to run\n#include <iostream>\nusing namespace std;\nint main() {\n    cout << "Hello from C++!" << endl;\n    return 0;\n}\n`,
+  sql:  `-- SQL — install SQL extension to run\nCREATE TABLE students (id INTEGER, name TEXT, grade INTEGER);\nINSERT INTO students VALUES (1, 'Alice', 92);\nINSERT INTO students VALUES (2, 'Bob', 78);\nSELECT * FROM students ORDER BY grade DESC;\n`
+};
+
+// Load or init file system
+let fs = {};
+try { fs = JSON.parse(localStorage.getItem(FS_KEY) || '{}') || {}; } catch(e) { fs = {}; }
+if (Object.keys(fs).length === 0) {
+  fs['main.py'] = { lang:'python', content: STARTERS.python, created: Date.now() };
+  saveFS();
+}
+
+function saveFS() { try { localStorage.setItem(FS_KEY, JSON.stringify(fs)); } catch(e) { setStat('Could not save (browser storage full or blocked)','err'); } }
+
+// ── OPEN TABS ──
+let openTabs = [];   // array of filenames
+let activeFile = null;
+let unsavedFiles = new Set();
+
+// ══════════════════════════════════════════
+//  DOM REFS
+// ══════════════════════════════════════════
+const editorEl  = document.getElementById('editor');
+const lineNums  = document.getElementById('line-nums');
+const outEl     = document.getElementById('out-content');
+const outInd    = document.getElementById('out-ind');
+const sLang     = document.getElementById('s-lang');
+const sMsg      = document.getElementById('s-msg');
+const sFIle     = document.getElementById('s-file');
+const cursorEl  = document.getElementById('cursor-info');
+const tabsBar   = document.getElementById('tabs-bar');
+const fileTree  = document.getElementById('file-tree');
+const editorWrap = document.getElementById('editor-wrap');
+const emptyState = document.getElementById('empty-state');
+
+let pyodide = null, pyLoading = false, aiOpen = false;
+let isHost = false, isJoined = false, sessionCode = '', bc = null, suppressSync = false;
+const installedExts = new Set(['python','javascript']);
+
+// ══════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════
+function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+
+function init() {
+  renderFileTree();
+  // Open first file
+  const first = Object.keys(fs)[0];
+  if (first) openFile(first);
+}
+
+// ══════════════════════════════════════════
+//  FILE TREE
+// ══════════════════════════════════════════
+function renderFileTree() {
+  const folder = document.querySelector('.folder-item');
+  // Remove existing file items
+  fileTree.querySelectorAll('.file-item').forEach(el => el.remove());
+
+  Object.keys(fs).sort().forEach(name => {
+    const f = fs[name];
+    const div = document.createElement('div');
+    div.className = 'file-item' + (name === activeFile ? ' active' : '');
+    div.dataset.name = name;
+    div.append(el('span','fi-icon',LANG_ICON[f.lang] || '📄'), el('span','fi-name',name));
+    const del = el('button','fi-del','✕'); del.title = 'Delete';
+    del.addEventListener('click', e => deleteFile(name, e));
+    div.append(del);
+    div.addEventListener('click', () => openFile(name));
+    fileTree.appendChild(div);
+  });
+}
+
+// ══════════════════════════════════════════
+//  OPEN / SWITCH FILE
+// ══════════════════════════════════════════
+function openFile(name) {
+  if (!fs[name]) return;
+
+  // Save current content before switching
+  if (activeFile && fs[activeFile]) {
+    fs[activeFile].content = editorEl.value;
+  }
+
+  activeFile = name;
+  const f = fs[name];
+
+  // Show editor, hide empty state
+  editorWrap.style.display = 'flex';
+  emptyState.style.display = 'none';
+
+  editorEl.value = f.content;
+  updateLines();
+
+  // Add to tabs if not there
+  if (!openTabs.includes(name)) {
+    openTabs.push(name);
+  }
+
+  renderTabs();
+  renderFileTree();
+  syncLangDropdown(f.lang);
+  sFIle.textContent = name;
+  setStat('Ready','ok');
+}
+
+function syncLangDropdown(lang) {
+  const sel = document.getElementById('lang-sel');
+  // try to set; if not available just skip
+  for (let opt of sel.options) { if (opt.value === lang) { sel.value = lang; break; } }
+  sLang.textContent = LANG_NAME[lang] || lang;
+}
+
+// ══════════════════════════════════════════
+//  TABS
+// ══════════════════════════════════════════
+function renderTabs() {
+  tabsBar.innerHTML = '';
+  openTabs.forEach(name => {
+    if (!fs[name]) return;
+    const f = fs[name];
+    const div = document.createElement('div');
+    div.className = 'tab-item' + (name === activeFile ? ' active' : '') + (unsavedFiles.has(name) ? ' unsaved' : '');
+    div.append(el('span','t-icon',LANG_ICON[f.lang]||'📄'), el('span','t-name',name));
+    const close = el('button','t-close','✕'); close.title = 'Close';
+    close.addEventListener('click', e => closeTab(name, e));
+    div.append(close);
+    div.addEventListener('click', () => openFile(name));
+    tabsBar.appendChild(div);
+  });
+}
+
+function closeTab(name, e) {
+  e.stopPropagation();
+  openTabs = openTabs.filter(t => t !== name);
+  unsavedFiles.delete(name);
+  if (activeFile === name) {
+    activeFile = openTabs[openTabs.length-1] || null;
+    if (activeFile) openFile(activeFile);
+    else {
+      editorWrap.style.display = 'none';
+      emptyState.style.display = 'flex';
+      sFIle.textContent = 'No file open';
+    }
+  }
+  renderTabs();
+}
+
+// ══════════════════════════════════════════
+//  NEW FILE MODAL
+// ══════════════════════════════════════════
+let selectedNewLang = 'python';
+
+function openNewFile() {
+  document.getElementById('new-fname').value = '';
+  document.getElementById('new-file-err').style.display = 'none';
+  selectedNewLang = 'python';
+  document.querySelectorAll('.lang-opt').forEach(el => {
+    el.classList.toggle('sel', el.dataset.lang === 'python');
+  });
+  document.getElementById('new-file-modal').classList.add('show');
+  setTimeout(() => document.getElementById('new-fname').focus(), 100);
+}
+
+function pickLang(el) {
+  document.querySelectorAll('.lang-opt').forEach(e => e.classList.remove('sel'));
+  el.classList.add('sel');
+  selectedNewLang = el.dataset.lang;
+  // auto-fill extension
+  const inp = document.getElementById('new-fname');
+  const cur = inp.value.trim();
+  if (!cur || cur === guessName(inp._lastLang)) {
+    inp.value = guessName(selectedNewLang);
+  }
+  inp._lastLang = selectedNewLang;
+}
+function guessName(lang) {
+  const ext = LANG_EXT[lang] || 'txt';
+  const existing = Object.keys(fs).filter(n => n.endsWith('.'+ext));
+  return existing.length === 0 ? `main.${ext}` : `file${existing.length}.${ext}`;
+}
+
+function createNewFile() {
+  let name = document.getElementById('new-fname').value.trim();
+  if (!name) { name = guessName(selectedNewLang); }
+  // add extension if missing
+  const ext = LANG_EXT[selectedNewLang];
+  if (ext && !name.includes('.')) name += '.' + ext;
+
+  const errEl = document.getElementById('new-file-err');
+  if (!/^[\w][\w .-]{0,63}$/.test(name)) { errEl.textContent = 'Use letters, numbers, spaces, dots, dashes or underscores (max 64).'; errEl.style.display='block'; return; }
+  if (fs[name]) { errEl.textContent = 'File name already exists.'; errEl.style.display='block'; return; }
+
+  fs[name] = { lang: selectedNewLang, content: STARTERS[selectedNewLang] || '', created: Date.now() };
+  saveFS();
+  closeModal('new-file-modal');
+  renderFileTree();
+  openFile(name);
+}
+
+// ══════════════════════════════════════════
+//  DELETE FILE
+// ══════════════════════════════════════════
+function deleteFile(name, e) {
+  e.stopPropagation();
+  if (!confirm(`Delete "${name}"? This cannot be undone.`)) return;
+  delete fs[name];
+  saveFS();
+  openTabs = openTabs.filter(t => t !== name);
+  unsavedFiles.delete(name);
+  if (activeFile === name) {
+    activeFile = openTabs[openTabs.length-1] || Object.keys(fs)[0] || null;
+    if (activeFile) openFile(activeFile);
+    else { editorWrap.style.display='none'; emptyState.style.display='flex'; sFIle.textContent='No file open'; }
+  }
+  renderTabs();
+  renderFileTree();
+}
+
+// ══════════════════════════════════════════
+//  SAVE
+// ══════════════════════════════════════════
+function saveFile() {
+  if (!activeFile) return;
+  fs[activeFile].content = editorEl.value;
+  saveFS();
+  unsavedFiles.delete(activeFile);
+  renderTabs();
+  setStat('Saved ✓','ok');
+  setTimeout(() => setStat('Ready','ok'), 2000);
+}
+
+function downloadFile() {
+  if (!activeFile) return;
+  fs[activeFile].content = editorEl.value;
+  const blob = new Blob([editorEl.value], {type:'text/plain'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = activeFile;
+  a.click();
+  URL.revokeObjectURL(a.href);
+  setStat('Downloaded ✓','ok');
+  setTimeout(() => setStat('Ready','ok'), 2000);
+}
+
+// Ctrl+S to save
+document.addEventListener('keydown', e => {
+  if ((e.ctrlKey||e.metaKey) && e.key==='s') { e.preventDefault(); saveFile(); }
+  if ((e.ctrlKey||e.metaKey) && e.key==='Enter') { e.preventDefault(); runCode(); }
+});
+
+// ══════════════════════════════════════════
+//  EDITOR EVENTS
+// ══════════════════════════════════════════
+editorEl.addEventListener('input', () => {
+  updateLines();
+  syncCollab();
+  if (activeFile) {
+    unsavedFiles.add(activeFile);
+    renderTabs();
+  }
+});
+editorEl.addEventListener('scroll', () => { lineNums.scrollTop = editorEl.scrollTop; });
+editorEl.addEventListener('keyup', updateCursor);
+editorEl.addEventListener('click', updateCursor);
+editorEl.addEventListener('keydown', e => {
+  if (e.key==='Tab') { e.preventDefault(); const s=editorEl.selectionStart; editorEl.value=editorEl.value.slice(0,s)+'    '+editorEl.value.slice(editorEl.selectionEnd); editorEl.selectionStart=editorEl.selectionEnd=s+4; updateLines(); }
+});
+
+function updateLines() {
+  const n = editorEl.value.split('\n').length;
+  lineNums.textContent = Array.from({length:n},(_,i)=>i+1).join('\n');
+}
+function updateCursor() {
+  const t = editorEl.value.slice(0,editorEl.selectionStart).split('\n');
+  cursorEl.textContent = `Ln ${t.length}, Col ${t[t.length-1].length+1}`;
+}
+
+// ══════════════════════════════════════════
+//  LANGUAGE SWITCH
+// ══════════════════════════════════════════
+function changeLang() {
+  const v = document.getElementById('lang-sel').value;
+  if (!installedExts.has(v)) {
+    document.getElementById('lang-sel').value = activeFile ? (fs[activeFile]?.lang||'python') : 'python';
+    return;
+  }
+  if (activeFile && fs[activeFile]) {
+    fs[activeFile].lang = v;
+    saveFS();
+  }
+  sLang.textContent = LANG_NAME[v]||v;
+  renderFileTree();
+}
+
+function getCurrentLang() {
+  if (activeFile && fs[activeFile]) return fs[activeFile].lang;
+  return document.getElementById('lang-sel').value;
+}
+
+// ══════════════════════════════════════════
+//  SIDEBAR TOGGLE
+// ══════════════════════════════════════════
+function toggleSidebar() {
+  const sb = document.getElementById('sidebar');
+  if (window.matchMedia('(max-width: 760px)').matches) sb.classList.toggle('open-mobile');
+  else sb.classList.toggle('collapsed');
+}
+
+// ══════════════════════════════════════════
+//  RUN CODE
+// ══════════════════════════════════════════
+async function runCode() {
+  const code = editorEl.value.trim();
+  if (!code) return;
+  const lang = getCurrentLang();
+  setOut('<span class="inf">Running…</span>');
+  setStat('Running…','');
+  outInd.className = 'ind';
+  if (lang==='python') await runPython(code);
+  else if (lang==='javascript') runJS(code);
+  else if (lang==='sql') {
+    if (!installedExts.has('sql')) { setOut('<span class="err">Install the SQL extension (🧩 Extensions) to run SQL.</span>'); setStat('Ready','ok'); return; }
+    await runSQL(code);
+  }
+  else { setOut(`<span class="err">Running ${esc(LANG_NAME[lang]||lang)} in the browser is planned. Download the file (⬇) and run it locally for now.</span>`); setStat('Ready','ok'); }
+}
+
+function runJS(code) {
+  const logs=[];
+  const orig=console.log;
+  const fmt=v=>{ if (typeof v==='string') return v; try { return JSON.stringify(v); } catch { return String(v); } };
+  console.log=(...a)=>logs.push(a.map(fmt).join(' '));
+  try { new Function(code)(); console.log=orig; setOut(esc(logs.join('\n'))||'<span class="inf">(no output)</span>'); setStat('Done','ok'); }
+  catch(e) { console.log=orig; setOut(`<span class="err">${esc(e.toString())}</span>`); setStat('Error','err'); outInd.className='ind err'; }
+}
+
+async function runPython(code) {
+  if (!pyodide) {
+    if (pyLoading) { setOut('<span class="inf">Pyodide still loading…</span>'); return; }
+    pyLoading=true;
+    setOut('<span class="inf">Loading Python runtime (first time ~10s)…</span>');
+    try { await loadScript(PYODIDE_URL + 'pyodide.js'); pyodide=await loadPyodide({indexURL:PYODIDE_URL}); }
+    catch(e) { setOut(`<span class="err">Failed to load Python: ${esc(e.message||String(e))}. Check your internet connection.</span>`); pyLoading=false; return; }
+    pyLoading=false;
+  }
+  const logs=[];
+  pyodide.setStdout({batched:s=>logs.push(s)});
+  pyodide.setStderr({batched:s=>logs.push('ERR: '+s)});
+  try { await pyodide.runPythonAsync(code); setOut(esc(logs.join('\n'))||'<span class="inf">(no output)</span>'); setStat('Done','ok'); }
+  catch(e) { setOut(`<span class="err">${esc(e.message||String(e))}</span>`); setStat('Error','err'); outInd.className='ind err'; }
+}
+
+function setOut(html) { outEl.innerHTML=html; }
+function clearOut() { setOut('<span class="inf">Cleared.</span>'); outInd.className='ind'; setStat('Ready','ok'); }
+function setStat(msg,type) { sMsg.textContent=msg; sMsg.className=type==='ok'?'s-ok':type==='err'?'s-err':''; }
+function esc(s) { return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+// Runtimes load on demand, so the editor itself stays a single small file.
+const PYODIDE_URL = 'https://cdn.jsdelivr.net/pyodide/v0.25.1/full/';
+const SQLJS_URL = 'https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.10.3/';
+const loaded = {};
+function loadScript(src) {
+  if (!loaded[src]) loaded[src] = new Promise((res, rej) => { const s=document.createElement('script'); s.src=src; s.onload=res; s.onerror=()=>{ delete loaded[src]; rej(new Error('could not download '+src)); }; document.head.appendChild(s); });
+  return loaded[src];
+}
+
+let SQL = null;
+async function loadSQL() {
+  if (SQL) return SQL;
+  await loadScript(SQLJS_URL + 'sql-wasm.js');
+  SQL = await initSqlJs({ locateFile: f => SQLJS_URL + f });
+  return SQL;
+}
+async function runSQL(code) {
+  try {
+    if (!SQL) setOut('<span class="inf">Loading SQLite (first time only)…</span>');
+    const S = await loadSQL();
+    const db = new S.Database();
+    const results = db.exec(code);
+    db.close();
+    if (!results.length) { setOut('<span class="ok">Query OK (no rows returned).</span>'); setStat('Done','ok'); return; }
+    const out = results.map(r => {
+      const w = r.columns.map((c,i) => Math.max(String(c).length, ...r.values.map(v => String(v[i] ?? 'NULL').length)));
+      const line = vals => vals.map((v,i) => String(v ?? 'NULL').padEnd(w[i])).join(' │ ');
+      return [line(r.columns), w.map(n => '─'.repeat(n)).join('─┼─'), ...r.values.map(line), `(${r.values.length} row${r.values.length===1?'':'s'})`].join('\n');
+    }).join('\n\n');
+    setOut(esc(out)); setStat('Done','ok');
+  } catch(e) { setOut(`<span class="err">${esc(e.message||String(e))}</span>`); setStat('Error','err'); outInd.className='ind err'; }
+}
+
+// ══════════════════════════════════════════
+//  COLLAB
+// ══════════════════════════════════════════
+function generateCode() { const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; return Array.from({length:6},()=>c[Math.floor(Math.random()*c.length)]).join(''); }
+
+function openCollab() {
+  if (isJoined) { openManageSession(); return; }
+  document.getElementById('collab-modal').classList.add('show');
+  document.getElementById('host-view').style.display='none';
+  document.getElementById('join-view').style.display='none';
+}
+
+function hostSession() {
+  sessionCode=generateCode();
+  document.getElementById('session-code-display').textContent=sessionCode;
+  document.getElementById('host-view').style.display='block';
+  document.getElementById('join-view').style.display='none';
+  document.getElementById('peer-list').textContent='Waiting for peers to join…';
+  isHost=isJoined=true;
+  bc=new BroadcastChannel('codepad_'+sessionCode);
+  bc.onmessage=e=>{
+    if(e.data.type==='join'){document.getElementById('peer-list').textContent='✅ Peer connected!';showCollabBadge('Hosting · '+sessionCode);bc.postMessage({type:'code',code:editorEl.value});}
+    if(e.data.type==='edit'){suppressSync=true;editorEl.value=e.data.code;suppressSync=false;updateLines();}
+  };
+  showCollabBadge('Hosting · '+sessionCode);
+}
+
+function showJoin() { document.getElementById('host-view').style.display='none'; document.getElementById('join-view').style.display='block'; document.getElementById('join-input').value=''; document.getElementById('join-err').style.display='none'; }
+
+function joinSession() {
+  const code=document.getElementById('join-input').value.trim().toUpperCase();
+  if(code.length!==6){document.getElementById('join-err').style.display='block';return;}
+  sessionCode=code;
+  bc=new BroadcastChannel('codepad_'+sessionCode);
+  let got=false;
+  bc.onmessage=e=>{
+    if(e.data.type==='code'&&!got){got=true;editorEl.value=e.data.code;updateLines();isJoined=true;showCollabBadge('Joined · '+sessionCode);closeModal('collab-modal');}
+    if(e.data.type==='edit'){suppressSync=true;editorEl.value=e.data.code;suppressSync=false;updateLines();}
+  };
+  bc.postMessage({type:'join',code:sessionCode});
+  setTimeout(()=>{if(!got){document.getElementById('join-err').style.display='block';bc.close();bc=null;}},1800);
+}
+
+function syncCollab() { if(!isJoined||suppressSync||!bc)return; bc.postMessage({type:'edit',code:editorEl.value}); }
+
+function endSession() { if(bc){bc.close();bc=null;} isHost=isJoined=false; sessionCode=''; hideCollabBadge(); closeModal('collab-modal'); }
+function leaveSession() { if(bc){bc.close();bc=null;} isHost=isJoined=false; sessionCode=''; hideCollabBadge(); closeModal('manage-modal'); }
+
+function openManageSession() {
+  document.getElementById('manage-code-display').textContent=sessionCode;
+  if(isHost){
+    document.getElementById('manage-title').textContent='🚀 Hosting Session';
+    document.getElementById('manage-desc').textContent='Share this code with teammates. Click to copy.';
+    document.getElementById('manage-peer-info').textContent=document.getElementById('peer-list').textContent;
+    document.getElementById('manage-leave-btn').textContent='✕ End Session';
+    document.getElementById('manage-leave-btn').onclick=()=>{endSession();};
+  } else {
+    document.getElementById('manage-title').textContent='🔗 Joined Session';
+    document.getElementById('manage-desc').textContent='You are connected as a guest.';
+    document.getElementById('manage-peer-info').textContent='Syncing with host in real-time';
+    document.getElementById('manage-leave-btn').textContent='✕ Leave Session';
+    document.getElementById('manage-leave-btn').onclick=()=>{leaveSession();};
+  }
+  document.getElementById('manage-modal').classList.add('show');
+}
+
+function showCollabBadge(label) { const b=document.getElementById('collab-badge'); document.getElementById('collab-label').textContent=label; b.style.display='flex'; }
+function hideCollabBadge() { document.getElementById('collab-badge').style.display='none'; }
+function copyCode() { navigator.clipboard.writeText(sessionCode).catch(()=>{}); const d=document.getElementById('session-code-display'); const m=document.getElementById('manage-code-display'); [d,m].forEach(el=>{if(el)el.textContent='Copied!';}); setTimeout(()=>{[d,m].forEach(el=>{if(el)el.textContent=sessionCode;});},1200); }
+
+// ══════════════════════════════════════════
+//  EXTENSIONS
+// ══════════════════════════════════════════
+function openExt() { document.getElementById('ext-modal').classList.add('show'); }
+
+async function installExt(id) {
+  const btn=document.querySelector(`#ext-${id}-item .ext-btn`);
+  btn.textContent='Installing…'; btn.disabled=true;
+  if (id==='sql') {
+    try { await loadSQL(); }
+    catch(e) { btn.textContent='Retry'; btn.disabled=false; setStat('Could not download SQLite — check your connection','err'); return; }
+  }
+  {
+    installedExts.add(id);
+    try { localStorage.setItem('codepad_v3_exts', JSON.stringify([...installedExts])); } catch(e) {}
+    btn.textContent='✓ Installed'; btn.className='ext-btn installed'; btn.disabled=false;
+    const sel=document.getElementById('lang-sel');
+    const extOpt=document.getElementById('ext-opts');
+    // Avoid duplicate options
+    if(![...sel.options].find(o=>o.value===id)){
+      const label={java:'☕ Java',cpp:'⚙️ C++',sql:'🗃️ SQL'};
+      const opt=document.createElement('option');
+      opt.value=id; opt.textContent=label[id]||id;
+      sel.insertBefore(opt,extOpt.nextSibling);
+    }
+    if (activeFile && fs[activeFile]) syncLangDropdown(fs[activeFile].lang);
+  }
+}
+
+// ══════════════════════════════════════════
+//  AI
+// ══════════════════════════════════════════
+const DEFAULT_MODEL='claude-sonnet-5-5';
+function getSetting(k){ try { return localStorage.getItem(k)||''; } catch(e) { return ''; } }
+function openSettings(){ document.getElementById('set-key').value=getSetting('codepad_ai_key'); document.getElementById('set-model').value=getSetting('codepad_ai_model')||DEFAULT_MODEL; document.getElementById('settings-modal').classList.add('show'); }
+function saveSettings(){ try { localStorage.setItem('codepad_ai_key',document.getElementById('set-key').value.trim()); localStorage.setItem('codepad_ai_model',document.getElementById('set-model').value.trim()||DEFAULT_MODEL); } catch(e) {} closeModal('settings-modal'); setStat('Settings saved','ok'); }
+function clearSettings(){ try { localStorage.removeItem('codepad_ai_key'); } catch(e) {} document.getElementById('set-key').value=''; setStat('API key removed','ok'); }
+function toggleAI() { aiOpen=!aiOpen; document.getElementById('ai-panel').classList.toggle('open',aiOpen); }
+function qask(p) { document.getElementById('ai-in').value=p; sendAI(); }
+
+async function sendAI() {
+  const inp=document.getElementById('ai-in');
+  const q=inp.value.trim(); if(!q)return; inp.value='';
+  const lang=getCurrentLang(), code=editorEl.value;
+  addMsg('user',q);
+  const loader=addMsg('load','Thinking…');
+  try {
+    const key=getSetting('codepad_ai_key');
+    if(!key){ loader.remove(); addMsg('bot','Add your Anthropic API key in ⚙ Settings to use the AI assistant. It stays in this browser.'); return; }
+    const res=await fetch('https://api.anthropic.com/v1/messages',{method:'POST',headers:{'Content-Type':'application/json','x-api-key':key,'anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},body:JSON.stringify({model:getSetting('codepad_ai_model')||DEFAULT_MODEL,max_tokens:1000,system:`You are a coding assistant inside CodePad v3. The user is writing ${lang}. Be concise and practical. Use code blocks when showing code.`,messages:[{role:'user',content:`My ${lang} code:\n\`\`\`${lang}\n${code}\n\`\`\`\n\nQuestion: ${q}`}]})});
+    const d=await res.json(); loader.remove();
+    addMsg('bot',d.content?.[0]?.text||d.error?.message||'No response.');
+  } catch(e) { loader.remove(); addMsg('bot','AI unavailable: '+e.message); }
+}
+
+function addMsg(role,text) {
+  const msgs=document.getElementById('ai-msgs');
+  const d=document.createElement('div'); d.className='amsg '+role;
+  if(role==='bot'){d.innerHTML=esc(text).replace(/```[\w]*\n?([\s\S]*?)```/g,'<pre>$1</pre>').replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\n/g,'<br>');}
+  else{d.textContent=text;}
+  msgs.appendChild(d); msgs.scrollTop=msgs.scrollHeight; return d;
+}
+
+document.getElementById('ai-in').addEventListener('keydown',e=>{ if(e.key==='Enter'&&!e.shiftKey){e.preventDefault();sendAI();} });
+
+// ══════════════════════════════════════════
+//  UTIL
+// ══════════════════════════════════════════
+function closeModal(id) { document.getElementById(id).classList.remove('show'); }
+
+document.querySelectorAll('.modal-bg').forEach(bg => {
+  bg.addEventListener('click', e => { if(e.target===bg) bg.classList.remove('show'); });
+});
+
+// Enter in new file input
+document.getElementById('new-fname').addEventListener('keydown', e => { if(e.key==='Enter') createNewFile(); });
+
+// Restore extensions installed in an earlier visit (runtimes still load lazily on first run)
+try { JSON.parse(localStorage.getItem('codepad_v3_exts')||'[]').forEach(id => { if (id==='sql') { installedExts.add('sql'); const b=document.querySelector('#ext-sql-item .ext-btn'); b.textContent='✓ Installed'; b.className='ext-btn installed'; const sel=document.getElementById('lang-sel'); const o=document.createElement('option'); o.value='sql'; o.textContent='🗃️ SQL'; sel.insertBefore(o, document.getElementById('ext-opts').nextSibling); } }); } catch(e) {}
+
+// ── START ──
+init();
+</script>
+</body>
+</html>
