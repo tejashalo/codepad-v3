@@ -71,8 +71,6 @@ docs/screenshots/     images used in this README
 CodePad v3 was built as a minor project for the B.Tech CSE (Cloud Computing & Virtualization Technology) programme at **UPES, Dehradun** (July–November 2025) by:
 
 - Tejas Saxena
-- Harsh Rohila
-- Harsh Ranjan
 
 ## Roadmap
 
